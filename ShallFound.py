@@ -19,5 +19,6 @@ class Foot:
 		self.ex=ex
 		self.ey=ey
 		
-	def 
+	def nic():
+		pass
 		
