@@ -14,7 +14,7 @@ class Foot:
 		#initial loads
 		self.Mz=0
 		self.My=0
-		self.V=0
+		self.V=B*L*h*25
 		self.Hy=0
 		self.Hz=0
 		
@@ -35,15 +35,25 @@ class Foot:
 		parameters=['gamma', 'Moed']
 		Borehole.set_table(parameters, soils) # parametry to lista na przyklad [fi, c, gamma]
 		
-		self.bh=Borehole('profile',level, bhProfile).profil
+		self.bh=Borehole('profile', level, bhProfile).profil
 		
-		print(self.bh)
 		
-	def apply_fill(self, kind, *zasypki):
+	def apply_fill(self, kind, gamma=18.5, zasypki=[]):
 		#kind = from_borehole / own
 		if kind=="from_borehole":
+			self.top_fill=self.bh['top'].max(axis=0)
+			self.bottom_fill=self.z+self.h
+			
+			self.V+=(self.top_fill-self.bottom_fill)*gamma*self.B*self.L
+		
+				
+		for zas in zasypki:
+			self.V+=zas[0]*zas[1]*self.B*self.L
+			
+			print(self.bh)
 			
 			#SELECTING LAYER - PRZENIESC W INNE MIEJSCE
+			"""
 			if self.z < self.bh['bottom'].min(axis=0):
 				print('foundation below soil investigation, lowest layer is being takeg to calculations')
 				grunt=self.bh.iloc[-1]
@@ -51,9 +61,15 @@ class Foot:
 			else:
 				grunt=self.bh[(self.bh['bottom']<self.z) & (self.bh['top']>self.z)]
 			print(grunt)
-			
-
+			"""
+	def find_below(self):
+		self.below=self.bh[self.bh['bottom']<self.z]
+		self.below['top'][self.below.index.min()]=self.z
+		self.below['thickness']=self.below['top']-self.below['bottom']
+		print(self.below)
 	
+	def calculate():
+		pass
 		
 		
 soil_props=[
@@ -72,10 +88,12 @@ bh_1=[
 		['piasek',3]
 		]
 
+teren=0
+posadowienie=-3
 	
-foot1=Foot(typ='foot', B=3, L=5, h=0.5, z=-20)
+foot1=Foot(typ='foot', B=3, L=5, h=0.5, z=posadowienie)
 foot1.add_loads(10, 20, 100, 3, 5, 1, 1)
-foot1.load_BH(soil_props, bh_1, 0)
+foot1.load_BH(soil_props, bh_1, teren)
 foot1.apply_fill(kind="from_borehole")
-
+foot1.find_below()
 
