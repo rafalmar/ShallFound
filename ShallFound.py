@@ -1,11 +1,13 @@
 from borehole import Borehole
+from math import exp, pi, radians, tan, fabs
 
 class Foot:
 	concrete=25 #kN/m3
 	
 	
-	def __init__(self, typ, B, L, h, z):
+	def __init__(self, typ, shape, B, L, h, z):
 		self.typ=typ #foot / continous footing
+		self.shape=shape
 		self.B=B
 		self.L=L
 		self.z=z #bottom level
@@ -31,8 +33,8 @@ class Foot:
 		self.ez=self.My/self.V
 		
 		
-	def load_BH(self, soils, bhProfile, level):
-		parameters=['gamma', 'Moed']
+	def load_BH(self, parameters, soils, bhProfile, level):
+		
 		Borehole.set_table(parameters, soils) # parametry to lista na przyklad [fi, c, gamma]
 		
 		self.bh=Borehole('profile', level, bhProfile).profil
@@ -68,15 +70,25 @@ class Foot:
 		self.below['thickness']=self.below['top']-self.below['bottom']
 		print(self.below)
 	
-	def calculate():
-		pass
+	def calculate_drained(self):
+		results=self.below
+		results['Nq']=exp(pi*tan(radians(results['fi'])))*(tan(radians(45+results['fi']/2)))^2 
+		results['Nc']=(results['Nq']-1)/tan(radians(results['fi']))
+		results['Ny']=2*(results['Nq']-1)*tan(radians(results['fi'])) # if delta > fi, means if the base is rough
+		self.Bp=self.B-2*fabs(self.ey)
+		self.Lp=self.L-2*fabs(self.ez)
 		
+		if self.shape=="rectangle":
+			pass
+			
+
+parameters=['gamma', 'Moed', 'fi', 'c']		
 		
-soil_props=[
-		['gleba', 18, 34],
-		['piasek', 19, 36],
-		['glina', 21, 10],
-		['organika', 10, 10]
+soils=[
+		['gleba', 18, 34, 20, 1],
+		['piasek', 19, 36, 34, 0],
+		['glina', 21, 10, 15, 20],
+		['organika', 10, 10, 5, 5]
 		]
 		
 		
@@ -91,9 +103,9 @@ bh_1=[
 teren=0
 posadowienie=-3
 	
-foot1=Foot(typ='foot', B=3, L=5, h=0.5, z=posadowienie)
+foot1=Foot(typ='foot', shape='rectangle', B=3, L=5, h=0.5, z=posadowienie)
 foot1.add_loads(10, 20, 100, 3, 5, 1, 1)
-foot1.load_BH(soil_props, bh_1, teren)
+foot1.load_BH(parameters, soils, bh_1, teren)
 foot1.apply_fill(kind="from_borehole")
 foot1.find_below()
-
+foot1.calculate_drained
