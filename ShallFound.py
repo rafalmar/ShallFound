@@ -1,11 +1,11 @@
 from borehole import Borehole
-from math import exp, pi, radians, tan, fabs
+from math import exp, pi, radians, sin, cos, tan, fabs
 
 class Foot:
 	concrete=25 #kN/m3
 	
 	
-	def __init__(self, typ, shape, B, L, h, z):
+	def __init__(self, typ, shape, B, L, h, z): #if the shape is circle input both B and L as Diameter
 		self.typ=typ #foot / continous footing
 		self.shape=shape
 		self.B=B
@@ -78,10 +78,32 @@ class Foot:
 		self.Bp=self.B-2*fabs(self.ey)
 		self.Lp=self.L-2*fabs(self.ez)
 		
-		if self.shape=="rectangle":
-			pass
-			
+		
+		
+		if self.shape=='circle':
+			self.sq=1+sin(radians(results['fi']))
+			self..sy=0.7
+		else:
+			self.sq=1+(self.Bp/self.Lp)*sin(radians(results['fi']))
+			self.sy=1-0.3*(self.Bp/self.Lp)
+		
+		mb=(2+(self.Bp/self.Lp))/(1+(self.Bp/self.Lp))
+		ml=(2+(self.Lp/self.Bp))/(1+(self.Lp/self.Bp))	
 
+		
+		if self.Hy==0 and self.Hz==0:
+			self.iq=1
+			self.ic=1
+		else:
+			if self.Hz==0 and self.Hy!=0:
+				self.m=mb
+			elif self.Hy==0 and self.Hz!=0:
+				self.m=ml
+			else:
+				teta= # do opisania
+				self.m=ml*cos(teta)**2+mb*sin(teta)**2
+			
+		
 parameters=['gamma', 'Moed', 'fi', 'c']		
 		
 soils=[
