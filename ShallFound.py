@@ -1,5 +1,6 @@
 from borehole import Borehole
 from math import exp, pi, radians, sin, cos, tan, fabs
+import numpy as np
 
 class Foot:
 	concrete=25 #kN/m3
@@ -78,7 +79,7 @@ class Foot:
 		self.Bp=self.B-2*fabs(self.ey)
 		self.Lp=self.L-2*fabs(self.ez)
 		
-		
+		#tu wstawić do tabeli Bp i Lp dla każdej warstwy zgodnie z przyrostem stopy zastępczej
 		
 		if self.shape=='circle':
 			self.sq=1+sin(radians(results['fi']))
@@ -95,14 +96,23 @@ class Foot:
 			self.iq=1
 			self.ic=1
 		else:
+			H=np.array([self.Hy,self.Hz])
+			Hnorm=np.sqrt(H.dot(H))
 			if self.Hz==0 and self.Hy!=0:
 				self.m=mb
 			elif self.Hy==0 and self.Hz!=0:
 				self.m=ml
 			else:
-				teta= # do opisania
+				
+				
+				
+				costeta=(np.dot(H,np.array([0,1])))/Hnorm/1
+				if costeta>0:
+					teta= np.arccos(costeta)
+				else:
+					teta=pi-np.arccos(costeta)
 				self.m=ml*cos(teta)**2+mb*sin(teta)**2
-			
+			self.iq=1-(Hnorm/(self.V+self.Bp*self.Lp)) # to musi być kolumna w tabeli zamiast stałej wartości bo zależy od C
 		
 parameters=['gamma', 'Moed', 'fi', 'c']		
 		
