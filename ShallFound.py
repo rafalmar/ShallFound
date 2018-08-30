@@ -68,6 +68,7 @@ class Foot:
 	def find_below(self):
 		self.below=self.bh[self.bh['bottom']<self.z].copy()
 		self.below.iloc[0,self.below.columns.get_loc('top')]=self.z
+		self.below['thickness']=self.below['top']-self.below['bottom']
 		print(self.below)
 	
 	def calculate_drained(self):
@@ -79,17 +80,37 @@ class Foot:
 		results['Ny']=results.apply(lambda x: 2*(x['Nq']-1)*tan(radians(x['fi'])), axis=1) # if delta > fi, means if the base is rough
 		results['Bp']=self.Bp
 		results['Lp']=self.Lp
+		bq=1
+		bc=1
+		Bpp=results.iloc[0,results.columns.get_loc('Bp')]
+		Lpp=results.iloc[0,results.columns.get_loc('Lp')]
+		print(self.Bp)
+		for i in range(1, results.shape[0]):
+			c=results.iloc[i-1,results.columns.get_loc('c')]
+			h=results.iloc[i-1,results.columns.get_loc('thickness')]
+			
+			if h<=Bpp:
+				if c>0:
+					b=h/4
+				else:
+					b=h/3
+			else:
+				if c>0:
+					b=h/3
+				else:
+					b=2*h/3
+			Bpp+=b
+			Lpp+=b
+			results.iloc[i, results.columns.get_loc('Bp')]=Bpp
+			results.iloc[i, results.columns.get_loc('Lp')]=Lpp
 		
-		#SPRAWDZIĆ POWYŻSZE WZORY I ODKOMENTOWAĆ PONIŻSZE
-		
-		"""
-				
-		#tu wstawić do tabeli Bp i Lp dla każdej warstwy zgodnie z przyrostem stopy zastępczej
+
 		
 		if self.shape=='circle':
-			self.sq=1+sin(radians(results['fi']))
+			results['sq']=results['fi'].apply(lambda x: 1+sin(radians(x)))
 			self.sy=0.7
 		else:
+			# TU JEST DO POPRAWY, PRZEROBIĆ PONIŻSZE DO DATAFRAMEA
 			self.sq=1+(self.Bp/self.Lp)*sin(radians(results['fi']))
 			self.sy=1-0.3*(self.Bp/self.Lp)
 		
@@ -139,7 +160,7 @@ bh_1=[
 		]
 
 teren=0
-posadowienie=-3.7
+posadowienie=-3.5
 	
 foot1=Foot(typ='foot', shape='rectangle', B=3, L=5, h=0.5, z=posadowienie)
 foot1.add_loads(10, 20, 100, 3, 5, 1, 1)
