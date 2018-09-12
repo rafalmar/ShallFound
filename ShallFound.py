@@ -69,7 +69,7 @@ class Foot:
 		self.below=self.bh[self.bh['bottom']<self.z].copy()
 		self.below.iloc[0,self.below.columns.get_loc('top')]=self.z
 		self.below['thickness']=self.below['top']-self.below['bottom']
-		print(self.below)
+		#print(self.below)
 	
 	def calculate_drained(self):
 		self.Bp=self.B-2*fabs(self.ey)
@@ -82,6 +82,10 @@ class Foot:
 		results['Lp']=self.Lp
 		bq=1
 		bc=1
+		
+		# ZMIENIC ZALOZENIE - poszerzenie podstawy "b" dodawac do B i L w kolejnych warstwach a nie do Bp i Lp. Bp i Lp wyliczac od nowa na podstawie nowych
+		#mimosrodow wynikajacych z dodania ciezaru warstwy wyzszej
+		
 		Bpp=results.iloc[0,results.columns.get_loc('Bp')]
 		Lpp=results.iloc[0,results.columns.get_loc('Lp')]
 		print(self.Bp)
@@ -103,7 +107,7 @@ class Foot:
 			Lpp+=b
 			results.iloc[i, results.columns.get_loc('Bp')]=Bpp
 			results.iloc[i, results.columns.get_loc('Lp')]=Lpp
-		
+			
 
 		
 		if self.shape=='circle':
@@ -111,23 +115,37 @@ class Foot:
 			self.sy=0.7
 		else:
 			# TU JEST DO POPRAWY, PRZEROBIĆ PONIŻSZE DO DATAFRAMEA
-			self.sq=1+(self.Bp/self.Lp)*sin(radians(results['fi']))
-			self.sy=1-0.3*(self.Bp/self.Lp)
+			results['sq']=results.apply(lambda x: 1+ x['Bp']/x['Lp']*sin(radians(x['fi'])), axis=1)
+			#self.sq=1+(self.Bp/self.Lp)*sin(radians(results['fi']))
+			
+			#self.sy=1-0.3*(self.Bp/self.Lp)
+			results['sy']=results.apply(lambda x: 1-0.3*x['Bp']/x['Lp'], axis=1)
 		
-		mb=(2+(self.Bp/self.Lp))/(1+(self.Bp/self.Lp))
-		ml=(2+(self.Lp/self.Bp))/(1+(self.Lp/self.Bp))	
-
+		results['mb']=results.apply(lambda x: (2+x['Bp']/x['Lp'])/(1+x['Bp']/x['Lp']), axis=1)
+		results['ml']=results.apply(lambda x: (2+x['Lp']/x['Bp'])/(1+x['Lp']/x['Bp']), axis=1)
+		
+		results['V']=0
+		results['A']=results['Bp']*results['Lp']
+		
+		#print(results.shape[0])
+		
+		for i in range(1, results.shape[0]):
+			results.iloc[i, results.columns.get_loc('V')]=results.iloc[i-1, results.columns.get_loc('thickness')]*results.iloc[i-1, results.columns.get_loc('gamma')]*results.iloc[i, results.columns.get_loc('A')]
+		results['V']=results['V'].cumsum()+self.V
 		
 		if self.Hy==0 and self.Hz==0:
-			self.iq=1
-			self.ic=1
+			
+			results['iq']=1
+			results['ic']=1
 		else:
 			H=np.array([self.Hy,self.Hz])
 			Hnorm=np.sqrt(H.dot(H))
 			if self.Hz==0 and self.Hy!=0:
-				self.m=mb
+				#self.m=mb
+				results['m']=results['mb']
 			elif self.Hy==0 and self.Hz!=0:
-				self.m=ml
+				#self.m=ml
+				results['m']=results['mb']
 			else:
 				
 				
@@ -137,9 +155,10 @@ class Foot:
 					teta= np.arccos(costeta)
 				else:
 					teta=pi-np.arccos(costeta)
-				self.m=ml*cos(teta)**2+mb*sin(teta)**2
-			self.iq=1-(Hnorm/(self.V+self.Bp*self.Lp)) # to musi być kolumna w tabeli zamiast stałej wartości bo zależy od C
-		"""
+				#self.m=ml*cos(teta)**2+mb*sin(teta)**2
+				results['m']=results.apply(lambda x: x['ml']*cos(teta)**2+x['mb']*sin(teta)**2, axis=1)
+			#self.iq=1-(Hnorm/(self.V+self.Bp*self.Lp)) # to musi być kolumna w tabeli zamiast stałej wartości bo zależy od C
+			#results['iq']=
 		print(results)
 parameters=['gamma', 'Moed', 'fi', 'c']		
 		
