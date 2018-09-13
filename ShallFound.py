@@ -17,7 +17,7 @@ class Foot:
 		#initial loads
 		self.Mz=0
 		self.My=0
-		self.V=B*L*h*25
+		self.V=B*L*h*type(self).concrete
 		self.Hy=0
 		self.Hz=0
 		
@@ -78,22 +78,22 @@ class Foot:
 		results['Nq']=results['fi'].apply(lambda x: exp(pi*tan(radians(x)))*(tan(radians(45+x/2)))**2)
 		results['Nc']=results['Nq'].apply(lambda x: (x-1)/tan(radians(x)))
 		results['Ny']=results.apply(lambda x: 2*(x['Nq']-1)*tan(radians(x['fi'])), axis=1) # if delta > fi, means if the base is rough
-		results['Bp']=self.Bp
-		results['Lp']=self.Lp
+		results['B']=self.B
+		results['L']=self.L
 		bq=1
 		bc=1
 		
 		# ZMIENIC ZALOZENIE - poszerzenie podstawy "b" dodawac do B i L w kolejnych warstwach a nie do Bp i Lp. Bp i Lp wyliczac od nowa na podstawie nowych
 		#mimosrodow wynikajacych z dodania ciezaru warstwy wyzszej
 		
-		Bpp=results.iloc[0,results.columns.get_loc('Bp')]
-		Lpp=results.iloc[0,results.columns.get_loc('Lp')]
-		print(self.Bp)
+		B=results.iloc[0,results.columns.get_loc('B')]
+		L=results.iloc[0,results.columns.get_loc('L')]
+		#print(self.Bp)
 		for i in range(1, results.shape[0]):
 			c=results.iloc[i-1,results.columns.get_loc('c')]
 			h=results.iloc[i-1,results.columns.get_loc('thickness')]
 			
-			if h<=Bpp:
+			if h<=B:
 				if c>0:
 					b=h/4
 				else:
@@ -103,11 +103,37 @@ class Foot:
 					b=h/3
 				else:
 					b=2*h/3
-			Bpp+=b
-			Lpp+=b
-			results.iloc[i, results.columns.get_loc('Bp')]=Bpp
-			results.iloc[i, results.columns.get_loc('Lp')]=Lpp
-			
+			B+=b
+			L+=b
+			results.iloc[i, results.columns.get_loc('B')]=B
+			results.iloc[i, results.columns.get_loc('L')]=L
+		
+
+
+		results['V']=0
+		results['A']=results['B']*results['L']
+		
+		#print(results.shape[0])
+		
+		for i in range(1, results.shape[0]):
+			results.iloc[i, results.columns.get_loc('V')]=results.iloc[i-1, results.columns.get_loc('thickness')]*results.iloc[i-1, results.columns.get_loc('gamma')]*results.iloc[i, results.columns.get_loc('A')]
+		results['V']=results['V'].cumsum()+self.V
+
+
+		results['ey']=self.Mz/results['V']
+		results['ez']=self.My/results['V']
+
+		results['Bp']=results['B']-results['ey']
+		results['Lp']=results['L']-results['ez']
+
+
+
+
+
+
+
+
+		
 
 		
 		if self.shape=='circle':
@@ -120,18 +146,11 @@ class Foot:
 			
 			#self.sy=1-0.3*(self.Bp/self.Lp)
 			results['sy']=results.apply(lambda x: 1-0.3*x['Bp']/x['Lp'], axis=1)
-		
+		results['sc']=(results['sq']*results['Nq']-1)/(results['Nq']-1)
 		results['mb']=results.apply(lambda x: (2+x['Bp']/x['Lp'])/(1+x['Bp']/x['Lp']), axis=1)
 		results['ml']=results.apply(lambda x: (2+x['Lp']/x['Bp'])/(1+x['Lp']/x['Bp']), axis=1)
 		
-		results['V']=0
-		results['A']=results['Bp']*results['Lp']
 		
-		#print(results.shape[0])
-		
-		for i in range(1, results.shape[0]):
-			results.iloc[i, results.columns.get_loc('V')]=results.iloc[i-1, results.columns.get_loc('thickness')]*results.iloc[i-1, results.columns.get_loc('gamma')]*results.iloc[i, results.columns.get_loc('A')]
-		results['V']=results['V'].cumsum()+self.V
 		
 		if self.Hy==0 and self.Hz==0:
 			
@@ -157,9 +176,15 @@ class Foot:
 					teta=pi-np.arccos(costeta)
 				#self.m=ml*cos(teta)**2+mb*sin(teta)**2
 				results['m']=results.apply(lambda x: x['ml']*cos(teta)**2+x['mb']*sin(teta)**2, axis=1)
-			#self.iq=1-(Hnorm/(self.V+self.Bp*self.Lp)) # to musi być kolumna w tabeli zamiast stałej wartości bo zależy od C
-			#results['iq']=
-		print(results)
+			results['iq']=(1-(Hnorm/(results['V']+results['Bp']*results['Lp']*results['c']*results['fi'].apply(radians).apply(tan).apply(lambda x: 1/x))))**results['m'] # to musi być kolumna w tabeli zamiast stałej wartości bo zależy od C
+			results['ic']=results['iq']-(1-results['iq'])/results['Nc']/results['fi'].apply(radians).apply(tan)
+			results['iy']=(1-(Hnorm/(results['V']+results['Bp']*results['Lp']*results['c']*results['fi'].apply(radians).apply(tan).apply(lambda x: 1/x))))**(results['m']+1) # to musi być kolumna w tabeli zamiast stałej wartości bo zależy od C
+		
+			results['rc']=results['c']*results['Nc']*bc*results['sc']*results['ic']
+		print(results[['thickness','gamma','B','L','c','rc']])
+
+		
+		
 parameters=['gamma', 'Moed', 'fi', 'c']		
 		
 soils=[
@@ -184,6 +209,6 @@ posadowienie=-3.5
 foot1=Foot(typ='foot', shape='rectangle', B=3, L=5, h=0.5, z=posadowienie)
 foot1.add_loads(10, 20, 100, 3, 5, 1, 1)
 foot1.load_BH(parameters, soils, bh_1, teren)
-foot1.apply_fill(kind="from_borehole")
+foot1.apply_fill(kind="from_borehole", gamma=18.5)
 foot1.find_below()
 foot1.calculate_drained()
