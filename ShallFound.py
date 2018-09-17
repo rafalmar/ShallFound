@@ -4,6 +4,7 @@ import numpy as np
 
 class Foot:
 	concrete=25 #kN/m3
+	fill=18.5
 	
 	
 	def __init__(self, typ, shape, B, L, h, z): #if the shape is circle input both B and L as Diameter
@@ -181,7 +182,19 @@ class Foot:
 			results['iy']=(1-(Hnorm/(results['V']+results['Bp']*results['Lp']*results['c']*results['fi'].apply(radians).apply(tan).apply(lambda x: 1/x))))**(results['m']+1) # to musi być kolumna w tabeli zamiast stałej wartości bo zależy od C
 		
 			results['rc']=results['c']*results['Nc']*bc*results['sc']*results['ic']
-		print(results[['thickness','gamma','B','L','c','rc']])
+			
+			results['rq']=(self.top_fill-self.bottom_fill)*type(self).fill
+			for i in range(results.shape[0]-1):
+				results['rq'].iloc[i+1]=results['thickness'].iloc[i]*results['gamma'].iloc[i]
+			results['rq']=results['rq']*results['Nq']*1*results['sq']*results['iq']
+			results['rq']=results['rq'].cumsum()
+			results['ry']=0.5*results['gamma']*results['Bp']*1*results['sy']*results['iy']
+			#results['rq'].iloc[0, results.columns.get_loc('rq')]=0
+			results['R']=results['rc']+results['rq']+results['ry']
+			results['SF']=results['R']/(results['V']/results['Bp']/results['Lp'])
+			
+		print(results)
+		#print(results[['thickness','gamma','B','L','c','rc']])
 
 		
 		
