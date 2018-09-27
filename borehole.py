@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import itertools
+import time
 
 # baza nazw: [fi, c, gamma, M0, E0]
 
@@ -33,7 +34,7 @@ class Borehole:
 		except:
 			self.__level=Borehole.__defaults['level']
 	def len(self):
-		return self.profil["top"].max() - self.profil['bottom'].min()  # TU JEST BŁĄD, __LEN__ CHYBA NIE MOŻE ZWRÓCIĆ FLOAT'A NAWET PO OVERRIDZIE
+		return self.profil["top"].max() - self.profil['bottom'].min()
 	@classmethod
 	def set_table(cls, params, grounds):
 		params.insert(0, "name")
@@ -63,14 +64,15 @@ class Borehole:
 		
 class Section2d():
 	def __init__(self, p1, p2, dist, dim):
-		self.p1.X=0
-		self.p2.X=self.p1.X+dist
 		self.p1=p1
 		self.p2=p2
+		self.p1.X=0
+		self.p2.X=self.p1.X+dist
+		
 		self.dist=dist
 		self.dim=dim
 		
-		self.p1.profil['mid']=(self.p1.profil['top']+self.p2.profil['bottom'])/2
+		self.p1.profil['mid']=(self.p1.profil['top']+self.p1.profil['bottom'])/2
 		self.p2.profil['mid']=(self.p2.profil['top']+self.p2.profil['bottom'])/2
 		
 		self.topL=p1.profil['top'].max()
@@ -94,14 +96,36 @@ class Section2d():
 		self.ny=int((self.maxy-self.miny)//self.dim)+1
 		x =[0+i*self.dim for i in range(self.nx+1)]
 		y =[self.maxy-i*self.dim for i in range(self.ny+1)]
+		
+		start_time=time.time()
 		xy=itertools.product(x, y)
-		#print(x)
+		xy=pd.DataFrame(list(xy), columns=['x','y'])
+		time_itertools=time.time()-start_time
+		
+		start_time=time.time()
+		x=pd.DataFrame(x, columns=['x'])
+		x['key']=0
+		y=pd.DataFrame(y, columns=['y'])
+		y['key']=0
+		xy=x.merge(y, how='outer')
+		xy.drop(['key'], axis=1, inplace=True)
+		time_pandas=time.time()-start_time
+		
+		if time_itertools>time_pandas:
+			print("pandas is faster")
+			print(time_itertools-time_pandas)
+		else:
+			print('itertools is faster')
+			print(time_itertools-time_pandas)
+		#print(xy)
 		#print(list(xy))
+		#xy.shape[0]
+		"""
 		for i in xy:
-			i=list[i]
+			#i=list[i]
 			rL=((i[0]-self.p1.X)**2+(i[1]-self.p1.profil['mid'])**2)**0.5
 			rR=((i[0]-self.p2.X)**2+(i[1]-self.p2.profil['mid'])**2)**0.5
-		
+		"""
 	
 		
 		
@@ -191,8 +215,8 @@ if __name__=="__main__":
 	print(bh1.profil)
 	print(bh2.profil)
 	
-	"""
-	cs1=Section(bh1.profil, bh2.profil)
-	print(cs1.cs)
-	"""
+	
+	cs1=Section2d(bh1, bh2, 10, 0.1)
+
+	
 
