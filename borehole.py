@@ -2,6 +2,15 @@ import numpy as np
 import pandas as pd
 import itertools
 import time
+import random
+from shapely.geometry import Polygon, Point
+import matplotlib.pyplot as plt
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+
+
 
 # baza nazw: [fi, c, gamma, M0, E0]
 
@@ -16,11 +25,7 @@ class Borehole:
 		self.profil=pd.DataFrame(list(bhlist), columns=['name', 'thickness'])
 		self.profil['bottom']=self.level-self.profil['thickness'].cumsum()
 		self.profil['top']=self.profil['bottom']+self.profil['thickness']
-		
 		self.match_gnds()
-		
-		#print(self.profil)
-		#self._datalen=self.profil["top"].max - self.profil['bottom'].min
 		
 		
 	
@@ -85,50 +90,41 @@ class Section2d():
 		self.uniques=list(set(self.uniques))
 		
 		print(self.uniques)
-		self.test2d()
+		print(self.p1.profil)
+		self.test2d(10)
 		
-	def test2d(self):	
+	def test2d(self, div):	
+				
 		
-		self.nx=int(self.dist//self.dim)+1
+		polygon=Polygon([(0, self.topL), (self.dist, self.topR), (self.dist,self.botR), (0,self.botL), (0,self.topL)])
+		point_in_poly = self.get_random_point_in_polygon(polygon, 2000)
 		
-		self.maxy=max(self.topL, self.topR)
-		self.miny=min(self.botR, self.botL)
-		self.ny=int((self.maxy-self.miny)//self.dim)+1
-		x =[0+i*self.dim for i in range(self.nx+1)]
-		y =[self.maxy-i*self.dim for i in range(self.ny+1)]
+		p_in_poly=pd.DataFrame(point_in_poly, columns=['x','y'])
 		
-		start_time=time.time()
-		xy=itertools.product(x, y)
-		xy=pd.DataFrame(list(xy), columns=['x','y'])
-		time_itertools=time.time()-start_time
 		
-		start_time=time.time()
-		x=pd.DataFrame(x, columns=['x'])
-		x['key']=0
-		y=pd.DataFrame(y, columns=['y'])
-		y['key']=0
-		xy=x.merge(y, how='outer')
-		xy.drop(['key'], axis=1, inplace=True)
-		time_pandas=time.time()-start_time
+		for i in self.uniques:
+			p1_mids=self.p1.profil[self.p1.profil['name']==i][['mid', 'thickness']]
+			p_in_poly[i]=0
+			print(p1_mids)
+		print(p_in_poly.head())
 		
-		if time_itertools>time_pandas:
-			print("pandas is faster")
-			print(time_itertools-time_pandas)
-		else:
-			print('itertools is faster')
-			print(time_itertools-time_pandas)
-		#print(xy)
-		#print(list(xy))
-		#xy.shape[0]
-		"""
-		for i in xy:
-			#i=list[i]
-			rL=((i[0]-self.p1.X)**2+(i[1]-self.p1.profil['mid'])**2)**0.5
-			rR=((i[0]-self.p2.X)**2+(i[1]-self.p2.profil['mid'])**2)**0.5
-		"""
+		
+		
+		
+
 	
-		
-		
+	def get_random_point_in_polygon(self, poly, div):
+		ps=[]
+		(minx, miny, maxx, maxy) = poly.bounds
+		while len(ps)<div:
+			p = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
+			if poly.contains(p):
+				ps.append(np.array(p))
+		ps=np.array(ps)
+		plt.plot(ps[:, 0], ps[:, 1], 'o', label = 'data')
+		plt.legend()
+		plt.show()
+		return ps
 		
 		
 		
@@ -166,16 +162,7 @@ class Section():
 
 
 
-
-
-
-
-
-
-
-
-		
-			
+	
 if __name__=="__main__":		
 	
 	# At the beginning you should always define table of all grounds and their parameters
