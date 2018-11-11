@@ -100,12 +100,32 @@ class Section2d():
 		point_in_poly = self.get_random_point_in_polygon(polygon, 2000)
 		
 		p_in_poly=pd.DataFrame(point_in_poly, columns=['x','y'])
-		
-		
+
+		self.p1.profil['x']=0
+		self.p2.profil['x']=self.dist
+
+		df=self.p1.profil.append(self.p2.profil, ignore_index=True)
+
+		for i in self.uniques:
+			pass
+
+		print(df)
+
+		'''
 		for i in self.uniques:
 			p1_mids=self.p1.profil[self.p1.profil['name']==i][['mid', 'thickness']]
-			p_in_poly[i]=0
-			print(p1_mids)
+			p1_mids['x']=0
+
+			p2_mids = self.p2.profil[self.p2.profil['name'] == i][['mid', 'thickness']]
+			p2_mids['x'] = self.dist
+
+			p1_mids.append(p2_mids, ignore_index=True)
+		'''
+
+
+
+
+
 		print(p_in_poly.head())
 		
 		
@@ -113,7 +133,7 @@ class Section2d():
 		
 
 	
-	def get_random_point_in_polygon(self, poly, div):
+	def get_random_point_in_polygon(self, poly, div, pnt=False):
 		ps=[]
 		(minx, miny, maxx, maxy) = poly.bounds
 		while len(ps)<div:
@@ -121,10 +141,12 @@ class Section2d():
 			if poly.contains(p):
 				ps.append(np.array(p))
 		ps=np.array(ps)
-		plt.plot(ps[:, 0], ps[:, 1], 'o', label = 'data')
-		plt.legend()
-		plt.show()
+		if pnt==True:
+			plt.plot(ps[:, 0], ps[:, 1], 'o', label = 'data')
+			plt.legend()
+			plt.show()
 		return ps
+
 		
 		
 		
