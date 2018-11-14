@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+sns.set(style="whitegrid")
 import itertools
 import time
 import random
@@ -97,9 +100,10 @@ class Section2d():
 				
 		
 		polygon=Polygon([(0, self.topL), (self.dist, self.topR), (self.dist,self.botR), (0,self.botL), (0,self.topL)])
-		point_in_poly = self.get_random_point_in_polygon(polygon, 2000)
+		point_in_poly = self.get_random_point_in_polygon(polygon, 5000)
 		
 		p_in_poly=pd.DataFrame(point_in_poly, columns=['x','y'])
+		#p_in_poly['xy']=pd.DataFrame.apply(lambda x: np.array([[x['x'], x['y']]]))
 
 		self.p1.profil['x']=0
 		self.p2.profil['x']=self.dist
@@ -107,31 +111,32 @@ class Section2d():
 		df=self.p1.profil.append(self.p2.profil, ignore_index=True)
 
 		for i in self.uniques:
-			pass
-
-		print(df)
-
-		'''
-		for i in self.uniques:
-			p1_mids=self.p1.profil[self.p1.profil['name']==i][['mid', 'thickness']]
-			p1_mids['x']=0
-
-			p2_mids = self.p2.profil[self.p2.profil['name'] == i][['mid', 'thickness']]
-			p2_mids['x'] = self.dist
-
-			p1_mids.append(p2_mids, ignore_index=True)
-		'''
+			df2=df[df['name']==i][['x','mid', 'thickness']]
+			p_in_poly[i]=p_in_poly.apply(lambda row: self.func(row, df2), axis=1)
 
 
 
 
-
+		print(df[['x','mid','thickness']])
+		
+		p_in_poly['match']=p_in_poly[self.uniques].idxmax(axis=1)
+		
+		
 		print(p_in_poly.head())
 		
 		
+		sns.scatterplot(data=p_in_poly, x='x', y='y', hue='match')
+		plt.show()
 		
+	def func(self, row, other):
+		#other_value = other.loc[x.name]
+		x=row['x']		
+		y=row['y']
+		other['r']=other.apply(lambda n: ((n['x']-x)**2+(n['mid']-y)**2)**0.5, axis=1)
+		#other['weight']=other['thickness']/(other['r'])**self.dist		#POMYSL 1
+		other['weight']=1/(other['r']**2)									#POMYSL 2
 		
-
+		return other['weight'].sum()
 	
 	def get_random_point_in_polygon(self, poly, div, pnt=False):
 		ps=[]
@@ -201,17 +206,17 @@ if __name__=="__main__":
 	
 	
 	otwor1=[
-	['gleba',0.5],
-	['piasek',3],
 	['gleba',1],
+	['piasek',3],
+	['organika',2],
 	['glina', 5]
 	]
 	
 	otwor2=[
 	
-	['piasek',1],
 	['gleba',1],
-	['organika',2],
+	['organika',3],
+	['piasek',2],
 	['glina', 5]
 	]
 	
