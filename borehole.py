@@ -100,7 +100,7 @@ class Section2d():
 				
 		
 		polygon=Polygon([(0, self.topL), (self.dist, self.topR), (self.dist,self.botR), (0,self.botL), (0,self.topL)])
-		point_in_poly = self.get_random_point_in_polygon(polygon, 5000)
+		point_in_poly = self.get_random_point_in_polygon(polygon, 3000)
 		
 		p_in_poly=pd.DataFrame(point_in_poly, columns=['x','y'])
 		#p_in_poly['xy']=pd.DataFrame.apply(lambda x: np.array([[x['x'], x['y']]]))
@@ -133,8 +133,21 @@ class Section2d():
 		x=row['x']		
 		y=row['y']
 		other['r']=other.apply(lambda n: ((n['x']-x)**2+(n['mid']-y)**2)**0.5, axis=1)
-		#other['weight']=other['thickness']/(other['r'])**self.dist		#POMYSL 1
-		other['weight']=1/(other['r']**2)									#POMYSL 2
+		
+		A=1 #waga masy
+		B=1 #waga odleglosci
+		C=1	#waga kata
+		
+		
+		
+		other['weight1']=A* other['thickness']																#POMYSL 1 masy
+		other['weight2']=1/(other['r']**B)																	#POMYSL 2 wplyw odleglosci
+		other['weight3']=C * other.apply(lambda n: 1/(np.absolute(n['mid']-y)/np.absolute(n['x']-x))/len(other.index), axis=1) 	#POMYSL 3 wplyw 1/sin()
+		
+		other['weight']=other['weight2']
+		
+		
+		#NOWY POMYSL - PRZYCIAGAC NIE TYLKO DO SRODKA ALE TEZ DO ROGOW WARSTWY
 		
 		return other['weight'].sum()
 	
@@ -206,24 +219,24 @@ if __name__=="__main__":
 	
 	
 	otwor1=[
-	['gleba',1],
-	['piasek',3],
+	['gleba',2],
 	['organika',2],
-	['glina', 5]
+	['piasek',2],
+	['glina', 4]
 	]
 	
 	otwor2=[
 	
-	['gleba',1],
-	['organika',3],
+	['gleba',2],
+	['organika',2],
 	['piasek',2],
-	['glina', 5]
+	['glina', 4]
 	]
 	
 	
 	
 	bh1=Borehole('o1',100, otwor1)
-	bh2=Borehole('o2',101, otwor2)
+	bh2=Borehole('o2',100, otwor2)
 	#pr=Section2d(bh1,bh2,10, 0.2)
 	
 	print(bh1.profil)
