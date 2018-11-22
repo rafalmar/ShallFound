@@ -111,19 +111,26 @@ class Section2d():
 		df=self.p1.profil.append(self.p2.profil, ignore_index=True)
 		
 		# TO MA BYC PETLA DODAJACA PUNKTY POMOCNIECZE POMIEDZY SRODKIEM CIEZKOSCI A TOP I BOTTOM WARSTWY
-		"""
+		
 		N=df.shape[0]
 		for i in range(N):
 			n2=N+2*i
 			n=N+2*i-1
 			
-
+			row=df.loc[i].copy()
+			row['mid']=row['top']-0.1
+			row2=df.loc[i].copy()
+			row2['mid']=row['bottom']+0.1
+			df=df.append([row, row2], ignore_index=True)
+			
+			
+			"""
 			df.loc[n]=df.loc[i]
 			df['mid'].loc[n]=(df['mid'].loc[n]+df['top'].loc[n])/2
 
 			df.loc[n2]=df.loc[i]
 			df['mid'].loc[n2]=(df['mid'].loc[n2]+df['bottom'].loc[n2])/2
-		"""
+			"""
 		for i in self.uniques:
 			df2=df[df['name']==i][['x','mid', 'thickness']]
 			p_in_poly[i]=p_in_poly.apply(lambda row: self.func(row, df2), axis=1)
@@ -148,9 +155,9 @@ class Section2d():
 		y=row['y']
 		other['r']=other.apply(lambda n: ((n['x']-x)**2+(n['mid']-y)**2)**0.5, axis=1)
 		
-		A=1 #waga masy
+		A=.003333 #waga masy
 		B=2 #waga odleglosci
-		C=1	#waga kata
+		C=.1	#waga kata
 		
 		
 		
@@ -158,12 +165,12 @@ class Section2d():
 		other['weight2']=1/(other['r']**B)																	#POMYSL 2 wplyw odleglosci
 		other['weight3']=C * other.apply(lambda n: 1/(np.arctan(np.absolute(n['mid']-y)/np.absolute(n['x']-x))/(np.pi/2)), axis=1) 	#POMYSL 3 wplyw 1/sin()
 		
-		other['weight']=other['weight3']
+		other['weight']=other['weight2']
 		
 		
 		#NOWY POMYSL - PRZYCIAGAC NIE TYLKO DO SRODKA ALE TEZ DO ROGOW WARSTWY
 		
-		return other['weight'].max()
+		return other['weight'].sum()
 	
 	def get_random_point_in_polygon(self, poly, div, pnt=False):
 		ps=[]
@@ -242,7 +249,6 @@ if __name__=="__main__":
 	otwor2=[
 	
 	['gleba',2],
-	['organika',2],
 	['piasek',2],
 	['glina', 4]
 	]
@@ -250,7 +256,7 @@ if __name__=="__main__":
 	
 	
 	bh1=Borehole('o1',100, otwor1)
-	bh2=Borehole('o2',101, otwor2)
+	bh2=Borehole('o2',100, otwor2)
 	#pr=Section2d(bh1,bh2,10, 0.2)
 	
 	print(bh1.profil)
