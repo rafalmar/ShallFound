@@ -1,21 +1,26 @@
+from dotmap import DotMap
 
-
-class PartialFactors():
-	
-	__EC7={'DA1':{'M':1,'A':1, 'R':1}}
-	
-	def __init__(self, norm, da=None):
-		self.norm=norm
-		self.da=da
-		if self.da!=None:
-			__factors=self.__EC7[da]
-			print(__factors)
-			return(__factors)
-	def sup(self):
-		pass
-	def inf(self):
-		pass
+class GeoFactors():
+	A1={'g':{'sup':1.35, 'inf':1.0}, 'q':{'sup':1.5, 'inf':0}, 'a':{'sup':1.0, 'inf':1.0}}
+	A2={'g':{'sup':1.0, 'inf':1.0}, 'q':{'sup':1.3, 'inf':0}, 'a':{'sup':1.0, 'inf':1.0}}
 		
-test_f=PartialFactors("EC","DA1")
+	M1={'fi':1.0, 'c':1.0, 'cu':1.0, 'qu':1.0, 'g':1.0}
+	M2={'fi':1.25, 'c':1.25, 'cu':1.4, 'qu':1.4, 'g':1.0}
+		
+	R1={'v':1.0, 'h':1.0}
+	R2={'v':1.4, 'h':1.1}
+	R3={'v':1.0, 'h':1.0}
 
-#wymyslic sposób na wybór normy i w związku z tym odpowiedniego słownika ze zmiennych klasowych
+	def __init__(self, da=None):
+		
+		self.da = da
+		if self.da=="DA2*":
+			self.A=DotMap(self.A1)
+			self.M=DotMap(self.M1)
+			self.R=DotMap(self.R2)
+
+
+if __name__=="__main__":
+			
+	pf=GeoFactors("DA2*")
+	print(pf.A.g.sup)
