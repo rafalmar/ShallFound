@@ -18,6 +18,15 @@ class GeoFactors():
 			self.A=DotMap(self.A1)
 			self.M=DotMap(self.M1)
 			self.R=DotMap(self.R2)
+		elif self.da=="DA1.C1":
+			self.A=DotMap(self.A1)
+			self.M=DotMap(self.M1)
+			self.R=DotMap(self.R1)
+		elif self.da=="DA1.C2":
+			self.A=DotMap(self.A2)
+			self.M=DotMap(self.M2)
+			self.R=DotMap(self.R1)
+		
 
 
 if __name__=="__main__":

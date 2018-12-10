@@ -1,30 +1,42 @@
 from borehole import Borehole
 from math import exp, pi, radians, sin, cos, tan, fabs
 import numpy as np
+from factors import GeoFactors
 
 class Foot:
 	concrete=25 #kN/m3
 	fill=18.5
 	
 	
-	def __init__(self, typ, shape, B, L, h, z): #if the shape is circle input both B and L as Diameter
+	def __init__(self, typ, shape, B, L, h, z, pfs): #if the shape is circle input both B and L as Diameter
 		self.typ=typ #foot / continous footing
 		self.shape=shape
 		self.B=B
 		self.L=L
 		self.z=z #bottom level
 		self.h=h
+		self.pfs=pfs
 		
 		#initial loads
 		self.Mz=0
 		self.My=0
-		self.V=B*L*h*type(self).concrete
+		self.V=0
 		self.Hy=0
 		self.Hz=0
 		
+		self.Mzd=self.Mz
+		self.Myd=self.My
+		self.Vd=self.V
+		self.Hyd=self.Hy
+		self.Hzd=self.Hz
 		
 		
-	def add_loads(self, Mzc, Myc, V, Hy, Hz, ex=0, ey=0, ez=0): #Mzc is a bending moment in a column
+		
+	def apply_load_pfs(self, pfs):
+		pass
+	
+		
+	def add_loads(self, typ, Mzc=0, Myc=0, V=0, Hy=0, Hz=0, ex=0, ey=0, ez=0): #Mzc is a bending moment in a column
 		self.Mz=self.Mz + Mzc + V*ey + Hy*ex
 		self.My=self.My + Myc + V*ez + Hz*ex
 		self.V=self.V + V
@@ -33,6 +45,19 @@ class Foot:
 		
 		self.ey=self.Mz/self.V
 		self.ez=self.My/self.V
+		
+		if typ=="live":
+			self.Mzd+=Mzc*self.pfs.A.q.sup + V*ey*self.pfs.A.q.sup + Hy*ex*self.pfs.A.q.sup
+			self.Myd+= Myc*self.pfs.A.q.sup + V*ez*self.pfs.A.q.sup + Hz*ex*self.pfs.A.q.sup
+			self.Vd+=V*self.pfs.A.q.sup
+			self.Hyd+=Hy*self.pfs.A.q.sup
+			self.Hzd+=Hz*self.pfs.A.q.sup
+		elif typ=="dead":
+			self.Mzd+=Mzc*self.pfs.A.g.sup + V*ey*self.pfs.A.g.sup + Hy*ex*self.pfs.A.g.sup
+			self.Myd+= Myc*self.pfs.A.g.sup + V*ez*self.pfs.A.g.sup + Hz*ex*self.pfs.A.g.sup
+			self.Vd+=V*self.pfs.A.g.sup
+			self.Hyd+=Hy*self.pfs.A.g.sup
+			self.Hzd+=Hz*self.pfs.A.g.sup
 		
 		
 	def load_BH(self, parameters, soils, bhProfile, level):
@@ -44,16 +69,17 @@ class Foot:
 		
 	def apply_fill(self, kind, gamma=18.5, zasypki=[]):
 		#kind = from_borehole / own
+		# FUNKCJA WYMAGA POPRAWIENIA, NIE UWZGLĘDNIA MIMOŚRODU, POWINNA MIEĆ WIĘCEJ OPCJI DODAWANIA ZASYPKI
 		if kind=="from_borehole":
 			self.top_fill=self.bh['top'].max(axis=0)
 			self.bottom_fill=self.z+self.h
 			
 			self.V+=(self.top_fill-self.bottom_fill)*gamma*self.B*self.L
-		
+			self.Vd+=(self.top_fill-self.bottom_fill)*gamma*self.B*self.L*self.pfs.A.g.sup
 				
 		for zas in zasypki:
 			self.V+=zas[0]*zas[1]*self.B*self.L
-			
+			self.Vd+=zas[0]*zas[1]*self.B*self.L*self.pfs.A.g.sup
 			print(self.bh)
 			
 			#SELECTING LAYER - PRZENIESC W INNE MIEJSCE
@@ -73,6 +99,10 @@ class Foot:
 		#print(self.below)
 	
 	def calculate_drained(self):
+		#ey ex need to be reaclucated afeter adding fill
+		self.ey=self.Mz/self.V
+		self.ez=self.My/self.V
+		
 		self.Bp=self.B-2*fabs(self.ey)
 		self.Lp=self.L-2*fabs(self.ez)
 		results=self.below
@@ -112,14 +142,16 @@ class Foot:
 
 
 		results['V']=0
+		results['Vd']=0
 		results['A']=results['B']*results['L']
 		
 		#print(results.shape[0])
 		
 		for i in range(1, results.shape[0]):
 			results.iloc[i, results.columns.get_loc('V')]=results.iloc[i-1, results.columns.get_loc('thickness')]*results.iloc[i-1, results.columns.get_loc('gamma')]*results.iloc[i, results.columns.get_loc('A')]
+			results.iloc[i, results.columns.get_loc('Vd')]=results.iloc[i-1, results.columns.get_loc('thickness')]*results.iloc[i-1, results.columns.get_loc('gamma')]*results.iloc[i, results.columns.get_loc('A')]*self.pfs.A.g.sup
 		results['V']=results['V'].cumsum()+self.V
-
+		results['Vd']=results['Vd'].cumsum()+self.Vd
 
 		results['ey']=self.Mz/results['V']
 		results['ez']=self.My/results['V']
@@ -127,14 +159,6 @@ class Foot:
 		results['Bp']=results['B']-results['ey']
 		results['Lp']=results['L']-results['ez']
 
-
-
-
-
-
-
-
-		
 
 		
 		if self.shape=='circle':
@@ -191,14 +215,27 @@ class Foot:
 			results['ry']=0.5*results['gamma']*results['Bp']*1*results['sy']*results['iy']
 			#results['rq'].iloc[0, results.columns.get_loc('rq')]=0
 			results['R']=results['rc']+results['rq']+results['ry']
-			results['SF']=results['R']/(results['V']/results['Bp']/results['Lp'])
+			results['eyd']=self.Mzd/results['Vd']
+			results['ezd']=self.Myd/results['Vd']
+			results['Bpd']=results['B']-results['eyd']
+			results['Lpd']=results['L']-results['ezd']
+			results['Apd']=results['Bpd']*results['Lpd']
+			results['mi']=(results['Vd']/results['Apd'])/results['R']
+			self.results=results
 			
-		print(results)
+		#print(results)
 		#print(results[['thickness','gamma','B','L','c','rc']])
+	
 
-		
+#PARTIAL FACTORS
+pf=GeoFactors("DA2*")
+
+
+	
 		
 parameters=['gamma', 'Moed', 'fi', 'c']		
+
+
 		
 soils=[
 		['gleba', 18, 34, 20, 1],
@@ -206,7 +243,12 @@ soils=[
 		['glina', 21, 10, 15, 20],
 		['organika', 10, 10, 5, 5]
 		]
-		
+
+soilsd=soils		
+for soild in soilsd:
+	soild[parameters.index('fi')+1]*=pf.M.fi
+	soild[parameters.index('c')+1]*=pf.M.c
+	soild[parameters.index('gamma')+1]*=pf.M.g
 		
 bh_1=[
 		['gleba',0.5],
@@ -216,12 +258,21 @@ bh_1=[
 		['piasek',3]
 		]
 
-teren=0
+terrain_level=0
 posadowienie=-3.5
+
+
+
+
+
 	
-foot1=Foot(typ='foot', shape='rectangle', B=3, L=5, h=0.5, z=posadowienie)
-foot1.add_loads(10, 20, 100, 3, 5, 1, 1)
-foot1.load_BH(parameters, soils, bh_1, teren)
+foot1=Foot(typ='foot', shape='rectangle', B=3, L=5, h=0.5, z=posadowienie, pfs=pf)
+foot1.add_loads(typ='dead', Mzc=10, Myc=20, V=100, Hy=3, Hz=5, ex=1, ey=1)
+
+
+foot1.load_BH(parameters, soils, bh_1, terrain_level)
 foot1.apply_fill(kind="from_borehole", gamma=18.5)
 foot1.find_below()
 foot1.calculate_drained()
+print(foot1.results)
+
