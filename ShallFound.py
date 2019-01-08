@@ -165,11 +165,9 @@ class Foot:
 			results['sq']=results['fi'].apply(lambda x: 1+sin(radians(x)))
 			self.sy=0.7
 		else:
-			# TU JEST DO POPRAWY, PRZEROBIĆ PONIŻSZE DO DATAFRAMEA
-			results['sq']=results.apply(lambda x: 1+ x['Bp']/x['Lp']*sin(radians(x['fi'])), axis=1)
-			#self.sq=1+(self.Bp/self.Lp)*sin(radians(results['fi']))
 			
-			#self.sy=1-0.3*(self.Bp/self.Lp)
+			results['sq']=results.apply(lambda x: 1+ x['Bp']/x['Lp']*sin(radians(x['fi'])), axis=1)
+
 			results['sy']=results.apply(lambda x: 1-0.3*x['Bp']/x['Lp'], axis=1)
 		results['sc']=(results['sq']*results['Nq']-1)/(results['Nq']-1)
 		results['mb']=results.apply(lambda x: (2+x['Bp']/x['Lp'])/(1+x['Bp']/x['Lp']), axis=1)
@@ -207,11 +205,16 @@ class Foot:
 		
 			results['rc']=results['c']*results['Nc']*bc*results['sc']*results['ic']
 			
+			#FRAGMENT ODPOWIEDZIALNY ZA POZYTYWNY WPLYW GRUNTU OBOK FUNDAMENTU - TRZEBA WYBRAC DO OBLICZEN STRONE FUNDAMENTU W ZALEZNOSCI OD MOMENTU, na razie nie ma znaczenia bo liczy zasypke do poziomu terenu
+			#DO SPRAWDZENIA CZY CUMSUM LICZY DOBRZE - CZY MA SENS
 			results['rq']=(self.top_fill-self.bottom_fill)*type(self).fill
 			for i in range(results.shape[0]-1):
 				results['rq'].iloc[i+1]=results['thickness'].iloc[i]*results['gamma'].iloc[i]
 			results['rq']=results['rq']*results['Nq']*1*results['sq']*results['iq']
 			results['rq']=results['rq'].cumsum()
+			
+			
+			
 			results['ry']=0.5*results['gamma']*results['Bp']*1*results['sy']*results['iy']
 			#results['rq'].iloc[0, results.columns.get_loc('rq')]=0
 			results['R']=results['rc']+results['rq']+results['ry']
