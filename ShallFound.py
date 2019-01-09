@@ -8,14 +8,19 @@ class Foot:
 	fill=18.5
 	
 	
-	def __init__(self, typ, shape, B, L, h, z, pfs): #if the shape is circle input both B and L as Diameter
-		self.typ=typ #foot / continous footing
+	def __init__(self, typ, shape, B, L, h, z, d1, d2, pfs, E1=0, E2=0): #if the shape is circle input both B and L as Diameter
+		self.typ=typ #foot / Type by Schematy.dwg F1-F5
 		self.shape=shape
 		self.B=B
 		self.L=L
 		self.z=z #bottom level
 		self.h=h
 		self.pfs=pfs
+		self.d1=d1 #collumn y dimension
+		self.d2=d2 #collumn z dimension
+		
+		self.E1=E1
+		
 		
 		#initial loads
 		self.Mz=0
@@ -30,6 +35,37 @@ class Foot:
 		self.Hyd=self.Hy
 		self.Hzd=self.Hz
 		
+		osy=self.B/2
+		osz=self.L/2
+		
+		G1={'B':self.B-osy-self.E1-self.d1/2,'L':self.L-osz-self.E2-self.d2/2,'V':0}
+		G2={'B':self.B-osy-self.E1-self.d1/2,'L':self.L-G1['L']-self.d2,'V':0}
+		G3={'B':self.B-G1['B']-self.d1,'L':G2['L'],'V':0}
+		G4={'B':G3['B'],'L':G1['L'],'V':0}
+		G5={'B':self.B-osy-self.E1-self.d1/2,'L':self.d2,'V':0}
+		G6={'B':self.d1,'L':G1['L'],'V':0}
+		G7={'B':G3['B'],'L':self.d2,'V':0}
+		G8={'B':self.d1,'L':G2['L'],'V':0}
+		
+		G1['ez']=self.E1+self.d1/2+G1['B']/2
+		G2['ez']=self.E1+self.d1/2+G2['B']/2
+		G5['ez']=self.E1+self.d1/2+G5['B']/2
+		G6['ez']=self.E1
+		G8['ez']=self.E1
+		G3['ez']=self.E1-self.d1/2-G3['B']/2
+		G7['ez']=self.E1-self.d1/2-G7['B']/2
+		G4['ez']=self.E1-self.d1/2-G4['B']/2
+		
+		G1['ey']=self.E2+self.d2/2+G1['L']/2
+		G6['ey']=self.E2+self.d2/2+G6['L']/2
+		G4['ey']=self.E2+self.d2/2+G4['L']/2
+		G5['ey']=self.E2
+		G7['ey']=self.E2
+		G2['ey']=self.E2-self.d2/2-G2['L']/2
+		G8['ey']=self.E2-self.d2/2-G8['L']/2
+		G3['ey']=self.E2-self.d2/2-G3['L']/2
+		
+		self.G={'G1':G1, 'G2':G2, 'G3':G3, 'G4':G4, 'G5':G5, 'G6':G6, 'G7':G7, 'G8':G8}
 		
 		
 	def apply_load_pfs(self, pfs):
@@ -67,19 +103,37 @@ class Foot:
 		self.bh=Borehole('profile', level, bhProfile).profil
 		
 		
-	def apply_fill(self, kind, gamma=18.5, zasypki=[]):
-		#kind = from_borehole / own
+	def apply_fill(self, where, side, gamma=18.5, top=self.bh['top'].max(axis=0), zasypki=[]):
+		#defaultowo dodaje zasypkę jednowarstwową do poziomu terenu
+		#opcjonalnie można zmienić poziom zasypki oraz podzielić ją na warstwy
+		#where mówi do których pól przyłożyć daną zasypkę rodzajem obciążenia wg Schemat.dxf i służy do właściwego przydzielenia obciążeń G1...G8
 		# FUNKCJA WYMAGA POPRAWIENIA, NIE UWZGLĘDNIA MIMOŚRODU, POWINNA MIEĆ WIĘCEJ OPCJI DODAWANIA ZASYPKI
-		if kind=="from_borehole":
-			self.top_fill=self.bh['top'].max(axis=0)
-			self.bottom_fill=self.z+self.h
+		zasypki=np.array(zasypki)
+		self.bottom_fill=self.z+self.h
+
+		
+		if len(zasypki)==0:
+			#then assume there is only one layer of backfill to the level of 'top' variable
+			g=(self.top_fill-self.bottom_fill)*gamma
+		else:
+			g=np.prod(zasypka, axis=1).sum()
+		
+		for i in where:
+			dG=self.G[i]['B']*self.G[i]['L']*g
+			self.G[i]['V']+=dG
 			
-			self.V+=(self.top_fill-self.bottom_fill)*gamma*self.B*self.L
-			self.Vd+=(self.top_fill-self.bottom_fill)*gamma*self.B*self.L*self.pfs.A.g.sup
-				
+			self.V+=dG
+			self.Vd+=dG*self.pfs.A.g.sup
+			self.My
+		
+		
+		
 		for zas in zasypki:
 			self.V+=zas[0]*zas[1]*self.B*self.L
 			self.Vd+=zas[0]*zas[1]*self.B*self.L*self.pfs.A.g.sup
+			
+			
+			
 			print(self.bh)
 			
 			#SELECTING LAYER - PRZENIESC W INNE MIEJSCE
@@ -269,12 +323,12 @@ posadowienie=-3.5
 
 
 	
-foot1=Foot(typ='foot', shape='rectangle', B=3, L=5, h=0.5, z=posadowienie, pfs=pf)
+foot1=Foot(typ='F1', shape='rectangle', B=3, L=5, h=0.5, z=posadowienie, pfs=pf)
 foot1.add_loads(typ='dead', Mzc=10, Myc=20, V=100, Hy=3, Hz=5, ex=1, ey=1)
 
 
 foot1.load_BH(parameters, soils, bh_1, terrain_level)
-foot1.apply_fill(kind="from_borehole", gamma=18.5)
+foot1.apply_fill(kind="from_borehole", side='left' ,gamma=18.5)
 foot1.find_below()
 foot1.calculate_drained()
 print(foot1.results)
