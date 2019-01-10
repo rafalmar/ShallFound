@@ -8,8 +8,8 @@ class Foot:
 	fill=18.5
 	
 	
-	def __init__(self, typ, shape, B, L, h, z, d1, d2, pfs, E1=0, E2=0): #if the shape is circle input both B and L as Diameter
-		self.typ=typ #foot / Type by Schematy.dwg F1-F5
+	def __init__(self, shape, B, L, h, z, d1, d2, pfs, E1=0, E2=0): #if the shape is circle input both B and L as Diameter
+		
 		self.shape=shape
 		self.B=B
 		self.L=L
@@ -20,7 +20,7 @@ class Foot:
 		self.d2=d2 #collumn z dimension
 		
 		self.E1=E1
-		
+		self.E2=E2
 		
 		#initial loads
 		self.Mz=0
@@ -74,23 +74,23 @@ class Foot:
 		
 	def add_loads(self, typ, Mzc=0, Myc=0, V=0, Hy=0, Hz=0, ex=0, ey=0, ez=0): #Mzc is a bending moment in a column
 		self.Mz=self.Mz + Mzc + V*ey + Hy*ex
-		self.My=self.My + Myc + V*ez + Hz*ex
+		self.My=self.My + Myc + -V*ez - Hz*ex
 		self.V=self.V + V
 		self.Hy=self.Hy + Hy
 		self.Hz=self.Hz + Hz
 		
 		self.ey=self.Mz/self.V
-		self.ez=self.My/self.V
+		self.ez= -1*self.My/self.V
 		
 		if typ=="live":
 			self.Mzd+=Mzc*self.pfs.A.q.sup + V*ey*self.pfs.A.q.sup + Hy*ex*self.pfs.A.q.sup
-			self.Myd+= Myc*self.pfs.A.q.sup + V*ez*self.pfs.A.q.sup + Hz*ex*self.pfs.A.q.sup
+			self.Myd+= Myc*self.pfs.A.q.sup - V*ez*self.pfs.A.q.sup - Hz*ex*self.pfs.A.q.sup
 			self.Vd+=V*self.pfs.A.q.sup
 			self.Hyd+=Hy*self.pfs.A.q.sup
 			self.Hzd+=Hz*self.pfs.A.q.sup
 		elif typ=="dead":
 			self.Mzd+=Mzc*self.pfs.A.g.sup + V*ey*self.pfs.A.g.sup + Hy*ex*self.pfs.A.g.sup
-			self.Myd+= Myc*self.pfs.A.g.sup + V*ez*self.pfs.A.g.sup + Hz*ex*self.pfs.A.g.sup
+			self.Myd+= Myc*self.pfs.A.g.sup - V*ez*self.pfs.A.g.sup - Hz*ex*self.pfs.A.g.sup
 			self.Vd+=V*self.pfs.A.g.sup
 			self.Hyd+=Hy*self.pfs.A.g.sup
 			self.Hzd+=Hz*self.pfs.A.g.sup
@@ -103,49 +103,39 @@ class Foot:
 		self.bh=Borehole('profile', level, bhProfile).profil
 		
 		
-	def apply_fill(self, where, side, gamma=18.5, top=self.bh['top'].max(axis=0), zasypki=[]):
+	def apply_fill(self, where, gamma=18.5, top="fromborehole", zasypki=[]):
 		#defaultowo dodaje zasypkę jednowarstwową do poziomu terenu
 		#opcjonalnie można zmienić poziom zasypki oraz podzielić ją na warstwy
 		#where mówi do których pól przyłożyć daną zasypkę rodzajem obciążenia wg Schemat.dxf i służy do właściwego przydzielenia obciążeń G1...G8
 		# FUNKCJA WYMAGA POPRAWIENIA, NIE UWZGLĘDNIA MIMOŚRODU, POWINNA MIEĆ WIĘCEJ OPCJI DODAWANIA ZASYPKI
 		zasypki=np.array(zasypki)
 		self.bottom_fill=self.z+self.h
-
+		if top=="fromborehole":
+			self.top_fill=self.bh['top'].max(axis=0)
 		
 		if len(zasypki)==0:
 			#then assume there is only one layer of backfill to the level of 'top' variable
 			g=(self.top_fill-self.bottom_fill)*gamma
 		else:
-			g=np.prod(zasypka, axis=1).sum()
+			g=np.prod(zasypki, axis=1).sum()
 		
 		for i in where:
 			dG=self.G[i]['B']*self.G[i]['L']*g
+			dez=self.G[i]['ez']
+			dey=self.G[i]['ey']
+			
 			self.G[i]['V']+=dG
 			
 			self.V+=dG
 			self.Vd+=dG*self.pfs.A.g.sup
-			self.My
+			
+			self.Mz+=dG*dey
+			self.Mzd+=dG*dey*self.pfs.A.g.sup
+			self.Myd-=dG*dez*self.pfs.A.g.sup
 		
+		self.ey=self.Mz/self.V
+		self.ez= -1*self.My/self.V
 		
-		
-		for zas in zasypki:
-			self.V+=zas[0]*zas[1]*self.B*self.L
-			self.Vd+=zas[0]*zas[1]*self.B*self.L*self.pfs.A.g.sup
-			
-			
-			
-			print(self.bh)
-			
-			#SELECTING LAYER - PRZENIESC W INNE MIEJSCE
-			"""
-			if self.z < self.bh['bottom'].min(axis=0):
-				print('foundation below soil investigation, lowest layer is being takeg to calculations')
-				grunt=self.bh.iloc[-1]
-				
-			else:
-				grunt=self.bh[(self.bh['bottom']<self.z) & (self.bh['top']>self.z)]
-			print(grunt)
-			"""
 	def find_below(self):
 		self.below=self.bh[self.bh['bottom']<self.z].copy()
 		self.below.iloc[0,self.below.columns.get_loc('top')]=self.z
@@ -322,13 +312,17 @@ posadowienie=-3.5
 
 
 
-	
-foot1=Foot(typ='F1', shape='rectangle', B=3, L=5, h=0.5, z=posadowienie, pfs=pf)
-foot1.add_loads(typ='dead', Mzc=10, Myc=20, V=100, Hy=3, Hz=5, ex=1, ey=1)
 
+#__init__(self, shape, B, L, h, z, d1, d2, pfs, E1=0, E2=0)	
+foot1=Foot(shape='rectangle', B=3, L=5, h=0.5, z=posadowienie, d1=0.4, d2=0.4, E1=0, E2=0, pfs=pf)
+foot1.add_loads(typ='dead', Mzc=10, Myc=20, V=100, Hy=3, Hz=5, ex=1, ey=1)
+#apply_fill(self, where, side, gamma=18.5, top=self.bh['top'].max(axis=0), zasypki=[]):
 
 foot1.load_BH(parameters, soils, bh_1, terrain_level)
-foot1.apply_fill(kind="from_borehole", side='left' ,gamma=18.5)
+
+#apply_fill(self, where, gamma=18.5, top=self.bh['top'].max(axis=0), zasypki=[]):
+foot1.apply_fill(where=["G1", "G4", "G6"], gamma=18.5, zasypki=[[0.6, 25],[0.7, 19]])
+
 foot1.find_below()
 foot1.calculate_drained()
 print(foot1.results)
